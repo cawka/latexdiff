@@ -1,0 +1,5 @@
+latexdiff (0.5-1) unreleased; urgency=low
+
+  * Initial release (Closes: #504411)
+
+ -- Pietro Abate <pietro.abate@pps.jussieu.fr>  Mon, 03 Nov 2008 16:45:06 +0100

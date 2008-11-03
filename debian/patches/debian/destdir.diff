@@ -1,0 +1,28 @@
+From: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Subject: [PATCH] debian/destdir
+
+add destdir to the makefile
+
+Signed-off-by: Pietro Abate <pietro.abate@pps.jussieu.fr>
+
+---
+ Makefile |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 4546730..adc668d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,8 +2,8 @@
+ # For the current setting you will need root permission but 
+ # it is perfectly acceptable to choose user directories 
+ #
+-INSTALLPATH = /usr/local
+-INSTALLMANPATH = $(INSTALLPATH)/man
++INSTALLPATH = $(DESTDIR)
++INSTALLMANPATH = $(INSTALLPATH)/share/man
+ INSTALLEXECPATH = $(INSTALLPATH)/bin
+ 
+ default:
+-- 
+tg: (9b8a8c3..) debian/destdir (depends on: master)

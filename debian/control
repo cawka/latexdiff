@@ -1,0 +1,25 @@
+Source: latexdiff
+Section: utils
+Priority: extra
+Maintainer: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Build-Depends: cdbs, debhelper (>= 7), quilt
+Standards-Version: 3.8.0
+Homepage: http://bullard.esc.cam.ac.uk/~tilmann/soft.html
+
+Package: latexdiff
+Architecture: all
+Depends: perl
+Suggests: subversion | cvs | rcs
+Recommends: texlive-base 
+Description:  Determine and mark up significant differences between LaTeX files
+ latexdiff compares two LaTeX files and marks up significant differences
+ between them (i.e. a diff for LaTeX files). 
+ .
+ Various options are available for visual markup using standard LaTeX packages
+ such as 'color.sty'. Changes not directly affecting visible text, for example
+ in formatting commands, are still marked in the LaTeX source. 
+ .
+ A rudimentary revision facilility is provided by another Perl script,
+ 'latexrevise', which accepts or rejects all changes. Manual editing of the
+ difference file can be used to override this default behaviour and accept or
+ reject selected changes only.

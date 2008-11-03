@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/patchsys-quilt.mk
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/makefile.mk
+
+# Add here any variable or target overrides you need.
+
+DEB_MAKE_INSTALL_TARGET = install-latexdiff-fast install-latexrevise install-latexdiff-vc DESTDIR=$(CURDIR)/debian/latexdiff/usr
+
+TG_BRANCHES = debian/destdir
+SAVED_BRANCH := $(shell git branch 2> /dev/null | grep '^*' | cut -f 2 -d' ')
+tg-export:
+	tg create stage-debian $(TG_BRANCHES)
+	git commit -m "staging"
+	rm -Rf debian/patches.new
+	tg export --quilt debian/patches.new
+	git rm -f .top*
+	git checkout $(SAVED_BRANCH)
+	tg delete stage-debian
+	rm debian/patches.new/stage-*
+	sed -i '/^stage-/d' debian/patches.new/series
+	rm -Rf debian/patches
+	mv debian/patches.new debian/patches
+
