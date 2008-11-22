@@ -3,9 +3,9 @@ to build the package :
 #if you are reading this file, you should not need this...
 #debcheckout git://git.debian.org/git/users/munga-guest/latexdiff.git
 
-# to use git-buildpackage, we need to create the quilt patches in master
-# we don't want to commit them, so this operation is necessary
-debian/rules tg-export
+# atm we don't have any debian specific patches neither upstream paches,
+# so we can skip this step.
+# debian/rules tg-export
 
 # since I've uncommited files in my master branch, I need to use --git-ignore-new
 # moreover the we should not specify buildarea in .gbp.conf
