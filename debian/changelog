@@ -1,4 +1,4 @@
-latexdiff (0.5-1) unreleased; urgency=low
+latexdiff (0.5-1) unstable; urgency=low
 
   * Initial release (Closes: #504411)
 

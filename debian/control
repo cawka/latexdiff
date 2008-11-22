@@ -11,9 +11,10 @@ Architecture: all
 Depends: perl
 Suggests: subversion | cvs | rcs
 Recommends: texlive-base 
-Description:  Determine and mark up significant differences between LaTeX files
+Description: Determine and mark up significant differences between LaTeX files
  latexdiff compares two LaTeX files and marks up significant differences
- between them (i.e. a diff for LaTeX files). 
+ between them (i.e. a diff for LaTeX files). It generates a new LaTeX file
+ containing the annotated differences.
  .
  Various options are available for visual markup using standard LaTeX packages
  such as 'color.sty'. Changes not directly affecting visible text, for example
