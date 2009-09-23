@@ -623,7 +623,7 @@ my $MATHREPL='displaymath';  # Environment introducing deleted maths blocks
 my $MATHARRENV='(?:eqnarray|align|gather|multiline|flalign)[*]?' ;           # Environments turning on eqnarray math mode
 my $MATHARRREPL='eqnarray*';  # Environment introducing deleted maths blocks
 my $ARRENV='(?:array|[pbvBV]matrix)'; # Enviroments making arrays in math mode.  The underlining style does not cope well with those - as a result in-text math environments are surrounded by \mbox{ } if any of these commands is used in an inline math block
-my $COUNTERCMD='(?:footnote|part|section|subsection|subsubsection|paragraph|subparagraph)';  # textcmds which are associated with a counter
+my $COUNTERCMD='(?:footnote|part|section|subsection|subsubsection|subsubsubsection|paragraph|subparagraph)';  # textcmds which are associated with a counter
                                         # If any of these commands occur in a deleted block
                                         # they will be succeeded by an \addtocounter{...}{-1}
                                         # for the associated counter such that the overall numbers
@@ -1060,20 +1060,26 @@ sub read_file_with_encoding {
 
   if (lc($encoding) eq "utf8" ) {
     open (FILE, "<:utf8",$filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
+	#local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+	#$output=<FILE>;
   } elsif ( lc($encoding) eq "ascii") {
     open (FILE, $filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
+	#local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+	#$output=<FILE>;
   } else {
-    require Encode;
-    open (FILE, "<",$filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
-    print STDERR "Converting $filename from $encoding to utf8\n" if $verbose;
-    $output=Encode::decode($encoding,$output);
+	die "Cannot use such encoding\n";
+	#require Encode;
+	#open (FILE, "<",$filename) or die("Couldn't open $filename: $!");
+	#local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+	#$output=<FILE>;
+	#print STDERR "Converting $filename from $encoding to utf8\n" if $verbose;
+	#$output=Encode::decode($encoding,$output);
   }
+
+	while( <FILE> )
+	{
+		$output.=$_ unless( $_ =~ /^%.*$/ );
+	}
   close FILE;
   return $output;
 }
@@ -1118,6 +1124,8 @@ sub flatten {
 
   print STDERR "DEBUG: includeonly $includeonly\n";
 
+  while( $text =~ /\\input{(.*?)}|\\include{(${includeonly}(?:\.tex)?)}/ )
+  {
   $text=~s/\\input{(.*?)}|\\include{(${includeonly}(?:\.tex)?)}/{ 
 	    $fname = $1 if defined($1)  ;
 	    $fname = $2 if defined($2) ;       
@@ -1131,6 +1139,7 @@ sub flatten {
 	    $newpage=(defined($2)? " \\newpage " : "") ;
 	    "$newpage$replacement$newpage";
           }/exg;
+  }
 
   return($text);
 }
@@ -1260,7 +1269,7 @@ sub bodydiff {
 # a latex command
 sub splitlatex {
   my ($string) = @_ ;
-  my @retval=($string =~ m/$pat/osg);  
+  my @retval=($string =~ m/$pat/osg);
 
   if (length($string) != length(join("",@retval))) {
     print STDERR "\nWARNING: Inconsistency in length of input string and parsed string:\n     This often indicates faulty or non-standard latex code.\n     In many cases you can ignore this and the following warning messages.\n Note that character numbers in the following are counted beginning after \\begin{document} and are only approximate." unless $ignorewarnings;
@@ -1977,7 +1986,7 @@ sub postprocess {
 
 
     # Remove all mark up within picture environments
-    while ( m/\\begin\{($PICTUREENV)\}.*?\\end\{\1\}/sg ) {
+    while ( m/\\begin\{($PICTUREENV|$FLOATENV)\}.*?\\end\{\1\}/sg ) {
       $cnt=0;
       $len=length($&);
       $begin=pos($_) - $len;
@@ -1988,27 +1997,27 @@ sub postprocess {
       $float =~ s/\\DIFdelbegin //g;
       $float =~ s/\\DIFdelend //g;
       $float =~ s/\\DIFdel\{($pat4)\}//g;
-      substr($_,$begin,$len)=$float;
+      substr($_,$begin,$len)="";#$float;
       pos = $begin + length($float);
     }
-    # Convert DIFadd, DIFdel, DIFFaddbegin , ... into  varieties
-    #    within floats (currently recognised float environments: plate,table,figure
-    #    plus starred varieties).
-    while ( m/\\begin\{($FLOATENV)\}.*?\\end\{\1\}/sg ) {
-      $cnt=0;
-      $len=length($&);
-      $begin=pos($_) - $len;
-      $float=$&;
-      $float =~ s/\\DIFaddbegin /\\DIFaddbeginFL /g;
-      $float =~ s/\\DIFaddend /\\DIFaddendFL /g;
-      $float =~ s/\\DIFadd\{/\\DIFaddFL{/g;
-      $float =~ s/\\DIFdelbegin /\\DIFdelbeginFL /g;
-      $float =~ s/\\DIFdelend /\\DIFdelendFL /g;
-      $float =~ s/\\DIFdel\{/\\DIFdelFL{/g;
-      substr($_,$begin,$len)=$float;
-      pos = $begin + length($float);
-    }
-    ### former location of undo renaming of \begin and \end in comments
+#    # Convert DIFadd, DIFdel, DIFFaddbegin , ... into  varieties
+#    #    within floats (currently recognised float environments: plate,table,figure
+#    #    plus starred varieties).
+#    while ( m/\\begin\{($FLOATENV)\}.*?\\end\{\1\}/sg ) {
+#      $cnt=0;
+#      $len=length($&);
+#      $begin=pos($_) - $len;
+#      $float=$&;
+#      $float =~ s/\\DIFaddbegin /\\DIFaddbeginFL /g;
+#      $float =~ s/\\DIFaddend /\\DIFaddendFL /g;
+#      $float =~ s/\\DIFadd\{/\\DIFaddFL{/g;
+#      $float =~ s/\\DIFdelbegin /\\DIFdelbeginFL /g;
+#      $float =~ s/\\DIFdelend /\\DIFdelendFL /g;
+#      $float =~ s/\\DIFdel\{/\\DIFdelFL{/g;
+#      substr($_,$begin,$len)=$float;
+#      pos = $begin + length($float);
+#    }
+#    ### former location of undo renaming of \begin and \end in comments
 
     # remove empty DIFCMD < lines
     s/^\Q${DELCMDOPEN}\E\n//msg;

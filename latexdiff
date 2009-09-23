@@ -413,6 +413,10 @@ exetime(1);
 if ($flatten) {
   $oldbody=flatten($oldbody,$oldpreamble,$oldfile,$encoding);
   $newbody=flatten($newbody,$newpreamble,$newfile,$encoding);
+
+#  open( f, ">old.tex" ); print f $oldbody; close( f );
+#  open( f, ">new.tex" ); print f $newbody; close( f );
+#  die; 
 }
 
 if ( length $oldpreamble && length $newpreamble ) {
@@ -499,21 +503,27 @@ sub read_file_with_encoding {
 
   if (lc($encoding) eq "utf8" ) {
     open (FILE, "<:utf8",$filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
+#    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+#    $output=<FILE>;
   } elsif ( lc($encoding) eq "ascii") {
     open (FILE, $filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
+#    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+#    $output=<FILE>;
   } else {
-    require Encode;
-    open (FILE, "<",$filename) or die("Couldn't open $filename: $!");
-    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
-    $output=<FILE>;
-    print STDERR "Converting $filename from $encoding to utf8\n" if $verbose;
-    $output=Encode::decode($encoding,$output);
+	die "Unknown encoding";
+#    require Encode;
+#	     open (FILE, "<",$filename) or die("Couldn't open $filename: $!");
+#    local $/ ; # locally set record operator to undefined, ie. enable whole-file mode
+#    $output=<FILE>;
+#    print STDERR "Converting $filename from $encoding to utf8\n" if $verbose;
+#    $output=Encode::decode($encoding,$output);
+  }
+  while( <FILE> )
+  {
+		$output.=$_ unless( $_ =~ /^%.*$/ );
   }
   close FILE;
+
   return $output;
 }
 
@@ -557,6 +567,8 @@ sub flatten {
 
   print STDERR "DEBUG: includeonly $includeonly\n";
 
+  while( $text =~ /\\input{(.*?)}|\\include{(${includeonly}(?:\.tex)?)}/ )
+  {
   $text=~s/\\input{(.*?)}|\\include{(${includeonly}(?:\.tex)?)}/{ 
 	    $fname = $1 if defined($1)  ;
 	    $fname = $2 if defined($2) ;       
@@ -570,6 +582,7 @@ sub flatten {
 	    $newpage=(defined($2)? " \\newpage " : "") ;
 	    "$newpage$replacement$newpage";
           }/exg;
+  }
 
   return($text);
 }

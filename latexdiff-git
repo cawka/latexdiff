@@ -1,0 +1,320 @@
+#!/usr/bin/perl -w
+# Place the following 2 lines at beginning to make script independent of location of perl
+#eval 'exec perl -w -S $0 ${1+"$@"}'
+#    if 0; # not running under some shell
+#
+# latexdiff-vc  - wrapper script for applying latexdiff to rcs managed files
+#                 and for automatised creation of postscript or pdf from difference file
+#
+#   Copyright (C) 2005  F J Tilmann (tilmann@esc.cam.ac.uk)
+#
+#   Contributors: S Utcke, H Bruyninckx
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License Version 2 as published by
+#    the Free Software Foundation.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# Detailed usage information at the end of the file
+#
+# version 0.25:
+#   - bbl is allowed as alternative extension (instead of .tex)
+#   
+use Getopt::Long ;
+use Pod::Usage qw/pod2usage/ ;
+use File::Temp qw/tempdir/ ;
+use File::Basename qw/dirname/;
+#use strict ;
+
+# Preset Variables
+my $latexdiff="/Users/cawka/Devel/latexdiff/latexdiff-fast"; # Program for making the comparison
+
+my $tempdir=tempdir(CLEANUP => 1);
+my $commit="HEAD";
+
+my( $version, $help, $force );
+
+Getopt::Long::Configure( 'pass_through','bundling' );
+
+GetOptions( 'commit|c:s' => \$commit,
+            'version' => \$version,
+			'force' => \$force,
+		    'help|h' => \$help );
+
+if( $help ) 
+{
+		pod2usage(1) ;
+}
+
+if( $version ) 
+{
+		die "This is LATEXDIFF-GIT 0.1\n" ;
+}
+
+my $file=pop @ARGV;
+( defined($file) && -e $file && $file =~ /\.(tex|bbl)$/ ) or pod2usage("Must specify at least one tex or bbl file");
+$old_file="$tempdir/$file";
+
+sub checkout_files($)
+{
+	my ($file)=@_;
+
+	my $git_name=`git ls-tree --name-only --full-name $commit "$file"`;
+	$git_name =~ s/^\s+//;
+	$git_name =~ s/\s+$//;
+
+	$dst_name = "$tempdir/$file";
+	if( $file =~ /^(.*)\/[^\/]+/ )
+	{
+			system( "mkdir -p '$tempdir/$1'" ) unless( -d "$tempdir/$1" );
+	}
+
+	system( "git show $commit:'$git_name' > '$dst_name'" );
+	print "Get $commit:'$git_name'\n";
+}
+
+my @files;
+push @files, $file;
+
+checkout_files( $file );
+
+foreach( @files )
+{
+		open( FILE,"<", "$tempdir/$_" ) or die("Couldn't open $tempdir/$_: $!");
+		while( $line=<FILE> )
+		{
+				$line =~ s/(^%).*$//g;
+
+				if( $line =~ /\\(input|include|includeonly){([^}]+)}/ )
+				{
+						push @files, "$2.tex";
+						checkout_files( "$2.tex" );
+				}
+		}
+		close( FILE );
+}
+
+#foreach( @files )
+#{
+#		checkout_files( $_ );
+#}
+
+$diff = $pdf = $file;
+$diff =~ s/\.tex$/_diff.tex/;
+$pdf  =~ s/\.tex$/_diff.pdf/;
+
+if ( -e $diff && ! $force ) 
+{
+		print STDERR "OK to overwrite existing file $diff (y/n)? ";
+		$answer = <STDIN> ;
+		unless ($answer =~ /^(y|yes)/i ) 
+		{
+				die "Abort ... " ;
+		}
+}
+
+# flatten
+sub readfile( $$ )
+{
+		my( $f,$dir )=@_;
+		#	print "$dir/$f\n\n";
+		my $output="";
+		open( my $IN, "<$dir/$f" );
+		while( <$IN> )
+		{
+			if( $_ =~ /^%.*$/ ) { next; }
+
+			if( $_ =~ /^(.*)\\input{(.*)}(.*)$/ )
+			{
+					$output.="$1".readfile($2.".tex",$dir)."$3";
+			}
+			elsif( $_ =~ /^(.*)\\input{(.*)}(.*)$/ )
+			{
+					$output.="$1\n\\clearpage".readfile($2.".tex",$dir)."$3";
+			}
+			else
+			{
+					$output.=$_;
+			}
+		}
+		close( $IN );
+		return $output;
+}
+
+$o=$n=$file;
+$o =~ s/\.tex/_old.tex/g;
+$n =~ s/\.tex/_new.tex/g;
+
+{
+open( FF, ">$n" ); print FF readfile( $file, "." ); close( FF );
+open( FF, ">$o" ); print FF readfile( $file, $tempdir ); close( FF );
+}
+
+print "Running $latexdiff\n";
+if( system("$latexdiff '$o' '$n' > '$diff'")!=0 ) 
+{ 
+		print STDERR  "Something went wrong in $latexdiff. Deleting $diff and abort\n" ; 
+		#unlink $diff; 
+		exit(5);
+};
+print "Generated difference file $diff\n";
+
+my $test=`egrep '^\\documentclass' "$diff"`;
+if( $test ne "\n" )
+{
+		print "Running pdflatex\n";
+		$cmd="pdflatex --interaction=batchmode '$diff'";
+		if( system($cmd)!=0 )
+		{
+				print STDERR "Error while running pdflatex.\n";
+				exit( 6 );
+		}
+
+		if( `egrep '/^\\bibliography/' "$diff"` ne "\n" )
+		{
+				$diff_noext=$diff;
+				$diff_noext=~ s/\.tex//;
+				if( ! -e "$diff_noext.bbl" )
+				{
+						system( "bibtex '$diff_noext'" );
+						system( $cmd ); system( $cmd );
+				}
+		}
+
+		system( "open '$pdf'" );
+}
+
+die;
+
+=head1 NAME
+
+latexdiff-git - wrapper script that calls latexdiff for files under GIT version management
+
+=head1 SYNOPSIS
+
+B<latexdiff-git> [B<--commit>=F<COMMIT>] F<file.tex>
+
+=head1 DESCRIPTION
+
+I<latexdiff-gitc> is a wrapper script that applies I<latexdiff> to a
+file, or multiple files under GIT version control, and optionally runs the
+sequence of C<latex> and C<dvips> or C<pdflatex> commands necessary to
+produce pdf or postscript output of the difference tex file(s). It can
+also be applied to a pair of files to automatise the generation of difference
+file in postscript or pdf format.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--rcs>, B<--svn>, or B<--cvs>
+
+Set the version system. 
+If no version system is specified, latexdiff-vc will venture a guess.
+
+latexdiff-cvs and latexdiff-rcs are variants of latexdiff-vc which default to 
+the respective versioning system. However, this default can still be overridden using the options above.
+
+=item B<-r>, B<-r> F<rev> or B<--revision>, B<--revision=>F<rev>
+
+Choose revision (under RCS, CVS or SVN). One or two B<-r> options can be
+specified, and the resulting in different behaviour:
+
+=over 4
+
+=item B<latexdiff-vc> -r F<file.tex> ...
+
+compares F<file.tex> with the most recent version checked into RCS.
+
+=item B<latexdiff-vc> -r F<rev1> F<file.tex> ...
+
+compares F<file.tex> with revision F<rev1>.
+
+=item B<latexdiff-vc> -r F<rev1> -r F<rev2> F<file.tex> ...
+
+compares revisions F<rev1> and F<rev2> of F<file.tex>.
+
+Multiple files can be specified for all of the above options. All files must have the
+extension C<.tex>, though.
+
+=item B<latexdiff-vc>  F<old.tex> F<new.tex>
+
+compares two files.
+
+=back
+
+The name of the difference file is generated automatically and
+reported to stdout.
+
+=item B<-d> or B<--dir>  B<-d> F<path> or B<--dir=>F<path>
+
+Rather than appending the string C<diff> and optionally the version
+numbers given to the output-file, this will prepend a directory name C<diff> 
+to the
+original filename, creating the directory and subdirectories should they not exist already.  This is particularly useful in order to clone a
+complete directory hierarchy.  Optionally, a pathname F<path> can be specified, which is prepended instead of C<diff>.
+
+=item B<--ps> or B<--postscript>
+
+Generate postscript output from difference file.  This will run the
+sequence C<latex; latex; dvips> on the difference file (do not use
+this option in the rare cases, where three C<latex> commands are
+required if you care about correct referencing).  If the difference
+file contains a C<\bibliography> tag, run the sequence C<latex;
+bibtex; latex; latex; dvips>.
+
+=item B<--pdf>
+
+Generate pdf output from difference file using C<pdflatex>. This will
+run the sequence C<pdflatex; pdflatex> on the difference file, or
+C<pdflatex; bibtex; pdflatex; pdflatex> for files requiring bibtex.
+
+=item B<--force>
+
+Overwrite existing diff files without asking for confirmation. Default 
+behaviour is to ask for confirmation before overwriting an existing difference
+file.
+
+=item B<--help> or
+B<-h>
+
+Show help text
+
+=item B<--version>
+
+Show version number
+
+=back
+
+All other options are passed on to C<latexdiff>.
+
+=head1 SEE ALSO
+
+L<latexdiff>
+
+=head1 PORTABILITY
+
+I<latexdiff-vc> uses external commands and is therefore
+limited to Unix-like systems. It also requires the RCS version control
+system and latex to be installed on the system.  Modules from Perl 5.8
+or higher are required.
+
+
+=head1 AUTHOR
+
+Copyright (C) 2005 Frederik Tilmann
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License Version 2
+Contributors: S Utcke, H Bruyninckx
+
+=cut
+
