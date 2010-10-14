@@ -47,6 +47,8 @@ install-latexrevise:
 install-latexdiff-vc:
 	install latexdiff-vc $(INSTALLEXECPATH)
 	cd $(INSTALLEXECPATH); for vcs in cvs rcs svn ; do if [ -e latexdiff-$$vcs ]; then rm latexdiff-$$vcs; fi; ln -s latexdiff-vc latexdiff-$$vcs ; done
+	install latexdiff-git $(INSTALLEXECPATH)
+	install latexdiff-fast $(INSTALLEXECPATH)
 
 test-ext: 
 	@echo "latexdiff example/example-draft.tex example/example-rev.tex (system Algorithm::Diff)"

@@ -3,12 +3,12 @@
 #eval 'exec perl -w -S $0 ${1+"$@"}'
 #    if 0; # not running under some shell
 #
-# latexdiff-vc  - wrapper script for applying latexdiff to rcs managed files
+# latexdiff-git - wrapper script for applying latexdiff to git managed files
 #                 and for automatised creation of postscript or pdf from difference file
 #
 #   Copyright (C) 2005  F J Tilmann (tilmann@esc.cam.ac.uk)
 #
-#   Contributors: S Utcke, H Bruyninckx
+#   Contributors: S Utcke, H Bruyninckx, A Afanasyev
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License Version 2 as published by
@@ -35,7 +35,7 @@ use File::Basename qw/dirname/;
 #use strict ;
 
 # Preset Variables
-my $latexdiff="/Users/cawka/Devel/latexdiff/latexdiff-fast"; # Program for making the comparison
+my $latexdiff="latexdiff-fast"; # Program for making the comparison
 
 my $tempdir=tempdir(CLEANUP => 1);
 my $commit="HEAD";
@@ -61,11 +61,11 @@ if( $version )
 
 my $file=pop @ARGV;
 ( defined($file) && -e $file && $file =~ /\.(tex|bbl)$/ ) or pod2usage("Must specify at least one tex or bbl file");
-$old_file="$tempdir/$file";
 
 sub checkout_files($)
 {
 	my ($file)=@_;
+	return if( "$file" eq "" );
 
 	my $git_name=`git ls-tree --name-only --full-name $commit "$file"`;
 	$git_name =~ s/^\s+//;
@@ -95,6 +95,7 @@ foreach( @files )
 
 				if( $line =~ /\\(input|include|includeonly){([^}]+)}/ )
 				{
+						print "Some strange values: $2\n";
 						push @files, "$2.tex";
 						checkout_files( "$2.tex" );
 				}
@@ -122,7 +123,7 @@ if ( -e $diff && ! $force )
 }
 
 # flatten
-sub readfile( $$ )
+sub readfile
 {
 		my( $f,$dir )=@_;
 		#	print "$dir/$f\n\n";
@@ -153,9 +154,11 @@ $o=$n=$file;
 $o =~ s/\.tex/_old.tex/g;
 $n =~ s/\.tex/_new.tex/g;
 
+if( $o =~ /^.*\.tex$/ ) 
 {
-open( FF, ">$n" ); print FF readfile( $file, "." ); close( FF );
-open( FF, ">$o" ); print FF readfile( $file, $tempdir ); close( FF );
+	print "$o\n";
+	open( FF, ">$n" ); print FF readfile( $file, "." ); close( FF );
+	open( FF, ">$o" ); print FF readfile( $file, $tempdir ); close( FF );
 }
 
 print "Running $latexdiff\n";
@@ -172,11 +175,11 @@ if( $test ne "\n" )
 {
 		print "Running pdflatex\n";
 		$cmd="pdflatex --interaction=batchmode '$diff'";
-		if( system($cmd)!=0 )
-		{
-				print STDERR "Error while running pdflatex.\n";
-				exit( 6 );
-		}
+#		if( system($cmd)!=0 )
+#		{
+#				print STDERR "Error while running pdflatex.\n";
+#				exit( 6 );
+#		}
 
 		if( `egrep '/^\\bibliography/' "$diff"` ne "\n" )
 		{
