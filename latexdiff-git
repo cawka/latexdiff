@@ -27,7 +27,7 @@
 #
 # version 0.25:
 #   - bbl is allowed as alternative extension (instead of .tex)
-#   
+#
 use Getopt::Long ;
 use Pod::Usage qw/pod2usage/ ;
 use File::Temp qw/tempdir/ ;
@@ -40,21 +40,22 @@ my $latexdiff="latexdiff-fast"; # Program for making the comparison
 my $tempdir=tempdir(CLEANUP => 1);
 my $commit="HEAD";
 
-my( $version, $help, $force );
+my( $version, $help, $force, $xelatex );
 
 Getopt::Long::Configure( 'pass_through','bundling' );
 
 GetOptions( 'commit|c:s' => \$commit,
             'version' => \$version,
 			'force' => \$force,
+      'xelatex' => \$xelatex,
 		    'help|h' => \$help );
 
-if( $help ) 
+if( $help )
 {
 		pod2usage(1) ;
 }
 
-if( $version ) 
+if( $version )
 {
 		die "This is LATEXDIFF-GIT 0.1\n" ;
 }
@@ -112,11 +113,11 @@ $diff = $pdf = $file;
 $diff =~ s/\.tex$/_diff.tex/;
 $pdf  =~ s/\.tex$/_diff.pdf/;
 
-if ( -e $diff && ! $force ) 
+if ( -e $diff && ! $force )
 {
 		print STDERR "OK to overwrite existing file $diff (y/n)? ";
 		$answer = <STDIN> ;
-		unless ($answer =~ /^(y|yes)/i ) 
+		unless ($answer =~ /^(y|yes)/i )
 		{
 				die "Abort ... " ;
 		}
@@ -154,7 +155,7 @@ $o=$n=$file;
 $o =~ s/\.tex/_old.tex/g;
 $n =~ s/\.tex/_new.tex/g;
 
-if( $o =~ /^.*\.tex$/ ) 
+if( $o =~ /^.*\.tex$/ )
 {
 	print "$o\n";
 	open( FF, ">$n" ); print FF readfile( $file, "." ); close( FF );
@@ -162,10 +163,10 @@ if( $o =~ /^.*\.tex$/ )
 }
 
 print "Running $latexdiff\n";
-if( system("$latexdiff '$o' '$n' > '$diff'")!=0 ) 
-{ 
-		print STDERR  "Something went wrong in $latexdiff. Deleting $diff and abort\n" ; 
-		#unlink $diff; 
+if( system("$latexdiff '$o' '$n' > '$diff'")!=0 )
+{
+		print STDERR  "Something went wrong in $latexdiff. Deleting $diff and abort\n" ;
+		#unlink $diff;
 		exit(5);
 };
 print "Generated difference file $diff\n";
@@ -173,25 +174,33 @@ print "Generated difference file $diff\n";
 my $test=`egrep '^\\documentclass' "$diff"`;
 if( $test ne "\n" )
 {
-		print "Running pdflatex\n";
-		$cmd="pdflatex --interaction=batchmode '$diff'";
-#		if( system($cmd)!=0 )
-#		{
-#				print STDERR "Error while running pdflatex.\n";
-#				exit( 6 );
-#		}
+    $cmd="pdflatex --interaction=batchmode '$diff'";
+    if ( $xelatex )
+    {
+       $cmd="xelatex '$diff'";
+    }
+		
+    if( system($cmd)!=0 )
+		{
+				print STDERR "Error while running $cmd.\n";
+				exit( 6 );
+		}
 
 		if( `egrep '/^\\bibliography/' "$diff"` ne "\n" )
 		{
 				$diff_noext=$diff;
 				$diff_noext=~ s/\.tex//;
 				if( ! -e "$diff_noext.bbl" )
-				{
+                  {
+                        print "running bibtex\n";
 						system( "bibtex '$diff_noext'" );
-						system( $cmd ); system( $cmd );
+                        print "Running $cmd\n";
+						system( $cmd );
+                        print "Run $cmd again\n";
+                        system( $cmd );
 				}
 		}
-
+        print "finish running $cmd\n";
 		system( "open '$pdf'" );
 }
 
@@ -220,10 +229,10 @@ file in postscript or pdf format.
 
 =item B<--rcs>, B<--svn>, or B<--cvs>
 
-Set the version system. 
+Set the version system.
 If no version system is specified, latexdiff-vc will venture a guess.
 
-latexdiff-cvs and latexdiff-rcs are variants of latexdiff-vc which default to 
+latexdiff-cvs and latexdiff-rcs are variants of latexdiff-vc which default to
 the respective versioning system. However, this default can still be overridden using the options above.
 
 =item B<-r>, B<-r> F<rev> or B<--revision>, B<--revision=>F<rev>
@@ -260,7 +269,7 @@ reported to stdout.
 =item B<-d> or B<--dir>  B<-d> F<path> or B<--dir=>F<path>
 
 Rather than appending the string C<diff> and optionally the version
-numbers given to the output-file, this will prepend a directory name C<diff> 
+numbers given to the output-file, this will prepend a directory name C<diff>
 to the
 original filename, creating the directory and subdirectories should they not exist already.  This is particularly useful in order to clone a
 complete directory hierarchy.  Optionally, a pathname F<path> can be specified, which is prepended instead of C<diff>.
@@ -282,9 +291,13 @@ C<pdflatex; bibtex; pdflatex; pdflatex> for files requiring bibtex.
 
 =item B<--force>
 
-Overwrite existing diff files without asking for confirmation. Default 
+Overwrite existing diff files without asking for confirmation. Default
 behaviour is to ask for confirmation before overwriting an existing difference
 file.
+
+=item B<--xelatex>
+
+Using xeLatex to generate pdf
 
 =item B<--help> or
 B<-h>
@@ -320,4 +333,3 @@ it under the terms of the GNU General Public License Version 2
 Contributors: S Utcke, H Bruyninckx
 
 =cut
-
